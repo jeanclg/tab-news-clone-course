@@ -1,16 +1,41 @@
 import migrationRunner from "node-pg-migrate";
 import { join } from "path";
+import database from "infra/database";
+
 async function migrations(req, res) {
-  const migrations = await migrationRunner({
-    databaseUrl: process.env.DATABASE_URL,
+  const dbClient = await database.getNewClient();
+
+  const migrationConfig = {
+    dbClient,
     dryRun: true,
     dir: join("infra", "migrations"),
     direction: "up",
     verbose: true,
-    migrationsTable: "pgmigrations"
-  });
+    migrationsTable: "pgmigrations",
+  };
 
-  res.status(200).json(migrations);
+  if (req.method === "GET") {
+    const pendingMigrations = await migrationRunner(migrationConfig);
+    await dbClient.end();
+    res.status(200).json(pendingMigrations);
+  }
+
+  if (req.method === "POST") {
+    const migratedMigrations = await migrationRunner({
+      ...migrationConfig,
+      dryRun: false,
+    });
+
+    await dbClient.end();
+
+    if (migratedMigrations.length > 0) {
+      return res.status(201).json(migratedMigrations);
+    }
+
+    res.status(200).json(migratedMigrations);
+  }
+
+  res.status(405);
 }
 
 export default migrations;
