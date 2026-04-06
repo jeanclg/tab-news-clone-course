@@ -15,6 +15,7 @@ async function migrations(req, res) {
   };
 
   if (req.method === "GET") {
+    console.log("get");
     const pendingMigrations = await migrationRunner(migrationConfig);
     await dbClient.end();
     res.status(200).json(pendingMigrations);
